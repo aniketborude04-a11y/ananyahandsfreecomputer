@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="mr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>अनन्या</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a1b2b;--ink:#e6f3fb;--dim:#8fb0c4;--ring:#4cc9f0;--hot:#ffb347}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font-family:'Noto Sans Devanagari',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
+h1{margin:0 0 4px;font-size:2rem}
+p{margin:0 0 28px;color:var(--dim)}
+#mic{width:168px;height:168px;border-radius:50%;border:3px solid var(--ring);background:radial-gradient(circle,#12344d,#0a1b2b 70%);color:var(--ink);font-family:inherit;font-weight:700;font-size:1.1rem;box-shadow:0 0 28px #4cc9f055,inset 0 0 28px #4cc9f033;cursor:pointer}
+#mic.on{border-color:var(--hot);box-shadow:0 0 44px #ffb34799;animation:p 1s infinite}
+@keyframes p{50%{transform:scale(1.05)}}
+@media(prefers-reduced-motion:reduce){#mic.on{animation:none}}
+#mic:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+form{display:flex;gap:8px;width:100%;max-width:480px;margin:28px 0 16px}
+input{flex:1;padding:12px;border-radius:10px;border:1px solid #2c4d66;background:#0f2a40;color:var(--ink);font:inherit}
+.s{padding:12px 18px;border:0;border-radius:10px;background:var(--ring);color:#04202e;font-family:inherit;font-weight:700;font-size:1rem}
+#log{width:100%;max-width:480px;list-style:none;padding:0;margin:0}
+#log li{padding:10px 12px;margin-bottom:8px;border-left:3px solid var(--ring);background:#0f2a40;border-radius:0 8px 8px 0}
+#log li.me{border-color:var(--hot);color:var(--dim)}
+</style>
+</head>
+<body>
+<h1>अनन्या</h1>
+<p>माईक दाबा आणि मराठीत बोला</p>
+<button id="mic" type="button">बोला</button>
+<form><input placeholder="किंवा इथे लिहा" aria-label="कमांड"><button class="s">पाठवा</button></form>
+<ul id="log"></ul>
+<script>
+const $=s=>document.querySelector(s);
+const log=(t,me)=>{const li=document.createElement('li');if(me)li.className='me';li.textContent=t;$('#log').prepend(li)};
+const m=location.hash.match(/key=([^&]+)/);
+if(m){localStorage.setItem('akey',decodeURIComponent(m[1]));history.replaceState(null,'',location.pathname);log('फोन जोडला गेला ✓')}
+let key=localStorage.getItem('akey')||'';
+async function send(text){
+  if(!key){key=prompt('Access key टाका')||'';localStorage.setItem('akey',key)}
+  log(text,true);
+  try{
+    const r=await fetch('/api',{method:'POST',headers:{'content-type':'application/json','x-key':key},body:JSON.stringify({text})});
+    const d=await r.json();
+    if(!r.ok){log('चूक: '+(d.error||r.status));if(r.status===401){localStorage.removeItem('akey');key=''}return}
+    log(d.reply||'ठीक आहे');
+    const u=new SpeechSynthesisUtterance(d.reply||'');u.lang='mr-IN';speechSynthesis.speak(u);
+  }catch(e){log('नेटवर्क चूक')}
+}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SR){$('#mic').disabled=true;log('Chrome वापरा, हा ब्राउझर voice ऐकू शकत नाही')}
+else{
+  const rec=new SR();rec.lang='mr-IN';
+  rec.onstart=()=>$('#mic').classList.add('on');
+  rec.onend=()=>$('#mic').classList.remove('on');
+  rec.onresult=e=>send(e.results[0][0].transcript);
+  rec.onerror=e=>log('माईक चूक: '+e.error);
+  $('#mic').onclick=()=>rec.start();
+}
+$('form').onsubmit=e=>{e.preventDefault();const v=$('input').value.trim();if(v){send(v);$('input').value=''}};
+</script>
+</body>
+</html>
